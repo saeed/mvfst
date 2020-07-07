@@ -14,6 +14,7 @@
 #include <quic/congestion_control/Copa.h>
 #include <quic/congestion_control/NewReno.h>
 #include <quic/congestion_control/QuicCubic.h>
+#include <quic/congestion_control/Credito.h>
 
 #include <memory>
 
@@ -32,6 +33,9 @@ DefaultCongestionControllerFactory::makeCongestionController(
       break;
     case CongestionControlType::Copa:
       congestionController = std::make_unique<Copa>(conn);
+      break;
+    case CongestionControlType::Credito:
+      congestionController = std::make_unique<Credito>(conn);
       break;
     case CongestionControlType::BBR: {
       auto bbr = std::make_unique<BbrCongestionController>(conn);

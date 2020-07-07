@@ -15,6 +15,7 @@ add_library(
   NewReno.cpp
   QuicCubic.cpp
   Pacer.cpp
+  Credito.cpp
 )
 
 target_include_directories(

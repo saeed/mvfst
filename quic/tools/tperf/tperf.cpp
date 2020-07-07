@@ -541,6 +541,8 @@ quic::CongestionControlType flagsToCongestionControlType(
     return quic::CongestionControlType::BBR;
   } else if (congestionControlType == "copa") {
     return quic::CongestionControlType::Copa;
+  } else if (congestionControlType == "credito") {
+    return quic::CongestionControlType::Credito;
   } else if (congestionControlType == "none") {
     return quic::CongestionControlType::None;
   }
