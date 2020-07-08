@@ -43,9 +43,9 @@ void Credito::onPacketSent(const OutstandingPacket& packet) {
 
 void Credito::onAckEvent(const AckEvent& ack) {
   subtractAndCheckUnderflow(conn_.lossState.inflightBytes, ack.ackedBytes);
-
+  uint64_t __add = kDefaultUDPSendPacketLen * 1.1;
   for (const auto& packet : ack.ackedPackets) {
-    addAndCheckOverflow(credits_, kDefaultUDPSendPacketLen * 1.1);
+    addAndCheckOverflow(credits_, __add);
   }
 
   credits_ = boundedCwnd(
