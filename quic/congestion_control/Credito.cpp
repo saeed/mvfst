@@ -59,7 +59,7 @@ void Credito::onPacketAckOrLoss(
     folly::Optional<AckEvent> ackEvent,
     folly::Optional<LossEvent> lossEvent) {
   if (lossEvent) {
-    subtractAndCheckUnderflow(conn_.lossState.inflightBytes, lossEvent.lostBytes);
+    subtractAndCheckUnderflow(conn_.lossState.inflightBytes, lossEvent->lostBytes);
   }
   if (ackEvent && ackEvent->largestAckedPacket.has_value()) {
     onAckEvent(*ackEvent);
