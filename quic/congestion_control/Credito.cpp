@@ -23,7 +23,7 @@ Credito::Credito(QuicConnectionStateBase& conn)
       conn_.transportSettings.maxCwndInMss,
       conn_.transportSettings.minCwndInMss);
   mul_factor_ = 1.01;
-  skip_ = 10;
+  skip_ = 20;
 }
 
 void Credito::onRemoveBytesFromInflight(uint64_t bytes) {
