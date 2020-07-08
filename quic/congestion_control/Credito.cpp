@@ -48,11 +48,11 @@ void Credito::onAckEvent(const AckEvent& ack) {
   subtractAndCheckUnderflow(conn_.lossState.inflightBytes, ack.ackedBytes);
   uint64_t __add = kDefaultUDPSendPacketLen * mul_factor_;
   for (const auto& packet : ack.ackedPackets) {
-    //if (mul_factor_ < 1.01 && skip_) {
-    //  skip_--;
-    //} else {
+    if (mul_factor_ <= 1 && skip_) {
+      skip_--;
+    } else {
       addAndCheckOverflow(credits_, __add);
-    //}
+    }
   }
 
   credits_ = boundedCwnd(
