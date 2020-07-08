@@ -32,7 +32,7 @@ void Credito::onRemoveBytesFromInflight(uint64_t bytes) {
 }
 
 void Credito::onPacketSent(const OutstandingPacket& packet) {
-  LOG(INFO) << "CREDITS " << credits;
+  LOG(INFO) << "CREDITS " << credits_;
   addAndCheckOverflow(conn_.lossState.inflightBytes, packet.encodedSize);
 
   subtractAndCheckUnderflow(credits_, kDefaultUDPSendPacketLen);
