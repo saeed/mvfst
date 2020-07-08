@@ -43,8 +43,6 @@ class Credito : public CongestionController {
 
  private:
   QuicConnectionStateBase& conn_;
-  uint64_t ssthresh_;
-  uint64_t cwndBytes_;
   folly::Optional<TimePoint> endOfRecovery_;
 
   uint64_t credits_;

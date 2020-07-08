@@ -16,16 +16,9 @@ constexpr int kRenoLossReductionFactorShift = 1;
 
 Credito::Credito(QuicConnectionStateBase& conn)
     : conn_(conn),
-      ssthresh_(std::numeric_limits<uint32_t>::max()),
-      cwndBytes_(conn.transportSettings.initCwndInMss * conn.udpSendPacketLen),
       credits_(conn.transportSettings.initCwndInMss * conn.udpSendPacketLen) {
-  cwndBytes_ = boundedCwnd(
-      cwndBytes_,
-      conn_.udpSendPacketLen,
-      conn_.transportSettings.maxCwndInMss,
-      conn_.transportSettings.minCwndInMss);
   credits_ = boundedCwnd(
-      cwndBytes_,
+      credits_,
       conn_.udpSendPacketLen,
       conn_.transportSettings.maxCwndInMss,
       conn_.transportSettings.minCwndInMss);
@@ -40,14 +33,26 @@ void Credito::onPacketSent(const OutstandingPacket& packet) {
   addAndCheckOverflow(conn_.lossState.inflightBytes, packet.encodedSize);
 
   subtractAndCheckUnderflow(credits_, kDefaultUDPSendPacketLen);
+
+  credits_ = boundedCwnd(
+      credits_,
+      conn_.udpSendPacketLen,
+      conn_.transportSettings.maxCwndInMss,
+      conn_.transportSettings.minCwndInMss);
 }
 
 void Credito::onAckEvent(const AckEvent& ack) {
   subtractAndCheckUnderflow(conn_.lossState.inflightBytes, ack.ackedBytes);
 
   for (const auto& packet : ack.ackedPackets) {
-    addAndCheckOverflow(credits_, packet.encodedSize);
+    addAndCheckOverflow(credits_, kDefaultUDPSendPacketLen * 1.1);
   }
+
+  credits_ = boundedCwnd(
+      credits_,
+      conn_.udpSendPacketLen,
+      conn_.transportSettings.maxCwndInMss,
+      conn_.transportSettings.minCwndInMss);
 }
 
 void Credito::onPacketAckOrLoss(
