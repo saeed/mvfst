@@ -71,7 +71,7 @@ uint64_t Credito::getWritableBytes() const noexcept {
 }
 
 uint64_t Credito::getCongestionWindow() const noexcept {
-  return 0;
+  return credits_;
 }
 
 bool Credito::inSlowStart() const noexcept {
