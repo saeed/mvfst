@@ -68,7 +68,7 @@ void Credito::onPacketAckOrLoss(
   if (lossEvent) {
     subtractAndCheckUnderflow(conn_.lossState.inflightBytes, lossEvent->lostBytes);
     if (mul_factor_ > 1)
-	mul_factor_ -= 0.002;
+	mul_factor_ -= 0.005;
     //mul_factor_ = 1;
   }
   if (ackEvent && ackEvent->largestAckedPacket.has_value()) {
