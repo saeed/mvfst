@@ -46,5 +46,6 @@ class Credito : public CongestionController {
   folly::Optional<TimePoint> endOfRecovery_;
 
   uint64_t credits_;
+  double mul_factor_;
 };
 } // namespace quic
