@@ -266,7 +266,7 @@ constexpr folly::StringPiece kCongestionControlNewRenoStr = "newreno";
 constexpr folly::StringPiece kCongestionControlCredito = "credito";
 constexpr folly::StringPiece kCongestionControlNoneStr = "none";
 
-constexpr DurationRep kPersistentCongestionThreshold = 30000;
+constexpr DurationRep kPersistentCongestionThreshold = 3;
 enum class CongestionControlType : uint8_t { Cubic, NewReno, Copa, BBR, Credito, None };
 folly::StringPiece congestionControlTypeToString(CongestionControlType type);
 folly::Optional<CongestionControlType> congestionControlStrToType(
@@ -381,7 +381,7 @@ constexpr size_t kMaxReasonPhraseLength = 1024;
 constexpr size_t kMinInitialPacketSize = 1200;
 
 // Default maximum PTOs that will happen before tearing down the connection
-constexpr uint16_t kDefaultMaxNumPTO = 7000;
+constexpr uint16_t kDefaultMaxNumPTO = 7;
 
 // Maximum early data size that we need to negotiate in TLS
 constexpr uint32_t kRequiredMaxEarlyDataSize = 0xffffffff;
