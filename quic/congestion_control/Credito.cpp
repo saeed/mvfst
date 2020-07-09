@@ -67,10 +67,7 @@ void Credito::onPacketAckOrLoss(
     folly::Optional<LossEvent> lossEvent) {
   if (lossEvent) {
     subtractAndCheckUnderflow(conn_.lossState.inflightBytes, lossEvent->lostBytes);
-    skip_ = std::max<uint64_t>(uint64_t()((conn_.lossState.inflightBytes/kDefaultUDPSendPacketLen)/2),2);
-//    if (mul_factor_ > 1)
-//	mul_factor_ -= 0.005;
-//    mul_factor_ = 1;
+    skip_ = std::max<uint64_t>(uint64_t((conn_.lossState.inflightBytes/kDefaultUDPSendPacketLen)/2),2);
   }
   if (ackEvent && ackEvent->largestAckedPacket.has_value()) {
     onAckEvent(*ackEvent);
