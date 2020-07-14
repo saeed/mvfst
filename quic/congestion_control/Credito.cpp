@@ -22,7 +22,7 @@ Credito::Credito(QuicConnectionStateBase& conn)
 //      conn_.udpSendPacketLen,
 //      conn_.transportSettings.maxCwndInMss,
 //      conn_.transportSettings.minCwndInMss);
-  mul_factor_ = 1.05;
+  mul_factor_ = 1.01;
   skip_ = 0;
   total_sent_ = 0;
   total_acked_ = 0;
