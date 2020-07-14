@@ -48,5 +48,8 @@ class Credito : public CongestionController {
   uint64_t credits_;
   double mul_factor_;
   uint64_t skip_;
+
+  uint64_t total_sent_;
+  uint64_t total_acked_;
 };
 } // namespace quic

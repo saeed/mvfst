@@ -24,6 +24,8 @@ Credito::Credito(QuicConnectionStateBase& conn)
       conn_.transportSettings.minCwndInMss);
   mul_factor_ = 1.05;
   skip_ = 0;
+  total_sent_ = 0;
+  total_acked_ = 0;
 }
 
 void Credito::onRemoveBytesFromInflight(uint64_t bytes) {
@@ -34,6 +36,7 @@ void Credito::onRemoveBytesFromInflight(uint64_t bytes) {
 void Credito::onPacketSent(const OutstandingPacket& packet) {
 //  LOG(INFO) << "CREDITS " << credits_;
   addAndCheckOverflow(conn_.lossState.inflightBytes, packet.encodedSize);
+  total_sent_ += packet.encodedSize;
 
   subtractAndCheckUnderflow(credits_, kDefaultUDPSendPacketLen);
 
@@ -46,6 +49,10 @@ void Credito::onPacketSent(const OutstandingPacket& packet) {
 
 void Credito::onAckEvent(const AckEvent& ack) {
   subtractAndCheckUnderflow(conn_.lossState.inflightBytes, ack.ackedBytes);
+  total_acked_ += ack.ackedBytes;
+
+  LOG_EVERY_N(INFO, 100) << "sent " << total_sent_ << " acked " << total_acked_;
+
   uint64_t __add = ack.ackedBytes * mul_factor_;
   addAndCheckOverflow(credits_, __add);
 
