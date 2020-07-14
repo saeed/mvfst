@@ -1214,6 +1214,7 @@ uint64_t writeConnectionDataToSocket(
     // if ioBufBatch.write returns false
     // it is because a flush() call failed
     if (!ret.writeSuccess) {
+      LOG(INFO) << "######################## THIS IS THE PROBLEM #######################"
       if (connection.loopDetectorCallback) {
         connection.writeDebugState.noWriteReason =
             NoWriteReason::SOCKET_FAILURE;
