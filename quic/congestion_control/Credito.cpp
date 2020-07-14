@@ -17,11 +17,11 @@ constexpr int kRenoLossReductionFactorShift = 1;
 Credito::Credito(QuicConnectionStateBase& conn)
     : conn_(conn),
       credits_(conn.transportSettings.initCwndInMss * conn.udpSendPacketLen) {
-  credits_ = boundedCwnd(
-      credits_,
-      conn_.udpSendPacketLen,
-      conn_.transportSettings.maxCwndInMss,
-      conn_.transportSettings.minCwndInMss);
+//  credits_ = boundedCwnd(
+//      credits_,
+//      conn_.udpSendPacketLen,
+//      conn_.transportSettings.maxCwndInMss,
+//      conn_.transportSettings.minCwndInMss);
   mul_factor_ = 1.05;
   skip_ = 0;
   total_sent_ = 0;
@@ -38,13 +38,18 @@ void Credito::onPacketSent(const OutstandingPacket& packet) {
   addAndCheckOverflow(conn_.lossState.inflightBytes, packet.encodedSize);
   total_sent_ += packet.encodedSize;
 
-  subtractAndCheckUnderflow(credits_, kDefaultUDPSendPacketLen);
+  if (credits_ < packet.encodedSize) {
+    LOG(INFO) << "shouldn't really happen";
+    credits_ = 0;
+  } else {
+    credits_ -= packet.encodedSize;
+  }
 
-  credits_ = boundedCwnd(
-      credits_,
-      conn_.udpSendPacketLen,
-      conn_.transportSettings.maxCwndInMss,
-      conn_.transportSettings.minCwndInMss);
+//  credits_ = boundedCwnd(
+//      credits_,
+//      conn_.udpSendPacketLen,
+//      conn_.transportSettings.maxCwndInMss,
+//      conn_.transportSettings.minCwndInMss);
 }
 
 void Credito::onAckEvent(const AckEvent& ack) {
@@ -54,13 +59,16 @@ void Credito::onAckEvent(const AckEvent& ack) {
   LOG_EVERY_N(INFO, 100) << "sent " << total_sent_ << " acked " << total_acked_;
 
   uint64_t __add = ack.ackedBytes * mul_factor_;
-  addAndCheckOverflow(credits_, __add);
+  credits_ += __add;
 
- credits_ = boundedCwnd(
-      credits_,
-      conn_.udpSendPacketLen,
-      conn_.transportSettings.maxCwndInMss,
-      conn_.transportSettings.minCwndInMss);
+
+//  addAndCheckOverflow(credits_, __add);
+
+// credits_ = boundedCwnd(
+//      credits_,
+//      conn_.udpSendPacketLen,
+ ///     conn_.transportSettings.maxCwndInMss,
+///      conn_.transportSettings.minCwndInMss);
 }
 
 void Credito::onPacketAckOrLoss(
