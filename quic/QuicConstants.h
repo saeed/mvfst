@@ -247,7 +247,7 @@ constexpr DurationRep kDefaultTimeReorderingThreshDivisor = 4;
 constexpr auto kPacketToSendForPTO = 2;
 
 // Maximum number of packets to write per writeConnectionDataToSocket call.
-constexpr uint64_t kDefaultWriteConnectionDataPacketLimit = 5;
+constexpr uint64_t kDefaultWriteConnectionDataPacketLimit = 50;
 // Minimum number of packets to write per burst in pacing
 constexpr uint64_t kDefaultMinBurstPackets = 5;
 // Default timer tick interval for pacing timer
@@ -342,13 +342,13 @@ constexpr uint64_t kLargestQuicTime = 0x0FFFull << (0x1F - 1);
 
 // Limit of non-retransmittable packets received before an Ack has to be
 // emitted.
-constexpr uint8_t kNonRtxRxPacketsPendingBeforeAck = 2;
+constexpr uint8_t kNonRtxRxPacketsPendingBeforeAck = 20;
 // Default threshold before switching to the after init Ack frequency.
-constexpr uint64_t kDefaultRxPacketsBeforeAckInitThreshold = 2;
+constexpr uint64_t kDefaultRxPacketsBeforeAckInitThreshold = 100;
 // Default before init Ack frequency.
-constexpr uint16_t kDefaultRxPacketsBeforeAckBeforeInit = 2;
+constexpr uint16_t kDefaultRxPacketsBeforeAckBeforeInit = 10;
 // Default after init Ack frequency.
-constexpr uint16_t kDefaultRxPacketsBeforeAckAfterInit = 2;
+constexpr uint16_t kDefaultRxPacketsBeforeAckAfterInit = 10;
 
 /* Ack timer */
 // TODO: These numbers are shamlessly taken from Chromium code. We have no idea
