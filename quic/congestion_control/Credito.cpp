@@ -46,17 +46,10 @@ void Credito::onPacketSent(const OutstandingPacket& packet) {
 
 void Credito::onAckEvent(const AckEvent& ack) {
   subtractAndCheckUnderflow(conn_.lossState.inflightBytes, ack.ackedBytes);
-  uint64_t __add = kDefaultUDPSendPacketLen * mul_factor_;
-  for (const auto& packet : ack.ackedPackets) {
-    if (skip_) {
-      if (conn_.lossState.inflightBytes <= kDefaultUDPSendPacketLen * 2)
-        skip_ = 0;
-    } else {
-      addAndCheckOverflow(credits_, __add);
-    }
-  }
+  uint64_t __add = ack.ackedBytes * mul_factor_;
+  addAndCheckOverflow(credits_, __add);
 
-  credits_ = boundedCwnd(
+ credits_ = boundedCwnd(
       credits_,
       conn_.udpSendPacketLen,
       conn_.transportSettings.maxCwndInMss,
@@ -68,7 +61,6 @@ void Credito::onPacketAckOrLoss(
     folly::Optional<LossEvent> lossEvent) {
   if (lossEvent) {
     subtractAndCheckUnderflow(conn_.lossState.inflightBytes, lossEvent->lostBytes);
-    skip_ = 1;//std::max<uint64_t>(uint64_t((conn_.lossState.inflightBytes/kDefaultUDPSendPacketLen)/4),2);
   }
   if (ackEvent && ackEvent->largestAckedPacket.has_value()) {
     onAckEvent(*ackEvent);
