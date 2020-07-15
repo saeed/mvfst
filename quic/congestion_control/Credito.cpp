@@ -7,10 +7,13 @@
  */
 
 #include <quic/congestion_control/Credito.h>
+#include <quic/common/TimeUtil.h>
 #include <quic/congestion_control/CongestionControlFunctions.h>
 #include <quic/logging/QLoggerConstants.h>
 
 namespace quic {
+
+using namespace std::chrono;
 
 constexpr int kRenoLossReductionFactorShift = 1;
 
