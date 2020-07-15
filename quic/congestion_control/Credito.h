@@ -51,5 +51,20 @@ class Credito : public CongestionController {
 
   uint64_t total_sent_;
   uint64_t total_acked_;
+
+
+  WindowedFilter<
+      std::chrono::microseconds,
+      MinFilter<std::chrono::microseconds>,
+      uint64_t,
+      uint64_t>
+      minRTTFilter_; // To get min RTT over 10 seconds
+
+  WindowedFilter<
+      std::chrono::microseconds,
+      MinFilter<std::chrono::microseconds>,
+      uint64_t,
+      uint64_t>
+      standingRTTFilter_; // To get min RTT over srtt/2
 };
 } // namespace quic
