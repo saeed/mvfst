@@ -40,7 +40,7 @@ void Credito::onPacketSent(const OutstandingPacket& packet) {
   total_sent_ += packet.encodedSize;
 
   if (credits_ < packet.encodedSize) {
-    LOG(INFO) << "shouldn't really happen " << credits_ << " " << packet.encodedSize;
+//    LOG(INFO) << "shouldn't really happen " << credits_ << " " << packet.encodedSize;
     credits_ = 0;
   } else {
     credits_ -= packet.encodedSize;
@@ -57,7 +57,7 @@ void Credito::onAckEvent(const AckEvent& ack) {
   subtractAndCheckUnderflow(conn_.lossState.inflightBytes, ack.ackedBytes);
   total_acked_ += ack.ackedBytes;
 
-  LOG_EVERY_N(INFO, 10) << "sent " << total_sent_ << " acked " << total_acked_ << " credits " << credits_;
+//  LOG_EVERY_N(INFO, 10) << "sent " << total_sent_ << " acked " << total_acked_ << " credits " << credits_;
 
   uint64_t __add = ack.ackedBytes * mul_factor_;
   credits_ += __add;
