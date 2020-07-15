@@ -56,7 +56,7 @@ void Credito::onAckEvent(const AckEvent& ack) {
       std::chrono::duration_cast<microseconds>(ack.ackTime.time_since_epoch())
           .count());
 
-  auto rttMinMicroSec = minRTTFilter_.GetBest();
+  auto rttMinMicroSec = minRTTFilter_.GetBest().count();
   auto rttStandingMicroSec = standingRTTFilter_.GetBest().count();
 
   if (rttMinMicroSec && rttStandingMicroSec && rttStandingMicroSec > rttMinMicroSec) {
