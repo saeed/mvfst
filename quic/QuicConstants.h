@@ -381,7 +381,7 @@ constexpr size_t kMaxReasonPhraseLength = 1024;
 constexpr size_t kMinInitialPacketSize = 1200;
 
 // Default maximum PTOs that will happen before tearing down the connection
-constexpr uint16_t kDefaultMaxNumPTO = 7;
+constexpr uint16_t kDefaultMaxNumPTO = 700;
 
 // Maximum early data size that we need to negotiate in TLS
 constexpr uint32_t kRequiredMaxEarlyDataSize = 0xffffffff;
