@@ -234,8 +234,8 @@ static size_t fillFrameWithAckBlocks(
 
     size_t additionalSize = gapSize + currBlockLenSize +
         (numAdditionalAckBlocksSize - previousNumAckBlocksSize);
-    if (bytesLimit < additionalSize) {
-      LOG(INFO) << "blocks exceed length";
+    if (bytesLimit < additionalSize + 100) {
+      LOG(INFO) << "blocks exceed length" << bytesLimit << " " << additionalSize;
       break;
     }
     numAdditionalAckBlocks++;
