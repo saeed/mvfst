@@ -16,6 +16,9 @@
 
 namespace quic {
 
+using namespace std::chrono_literals;
+constexpr std::chrono::microseconds kMinRTTWindowLength{10s};
+
 class Credito : public CongestionController {
  public:
   explicit Credito(QuicConnectionStateBase& conn);
