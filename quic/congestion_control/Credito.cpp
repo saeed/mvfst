@@ -16,14 +16,14 @@ constexpr int kRenoLossReductionFactorShift = 1;
 
 Credito::Credito(QuicConnectionStateBase& conn)
     : conn_(conn),
-      credits_(8000 * conn.udpSendPacketLen) {
-     // credits_(conn.transportSettings.initCwndInMss * conn.udpSendPacketLen) {
+//      credits_(8000 * conn.udpSendPacketLen) {
+      credits_(conn.transportSettings.initCwndInMss * conn.udpSendPacketLen) {
 //  credits_ = boundedCwnd(
 //      credits_,
 //      conn_.udpSendPacketLen,
 //      conn_.transportSettings.maxCwndInMss,
 //      conn_.transportSettings.minCwndInMss);
-  mul_factor_ = 1;//1.05;
+  mul_factor_ = 1.05;
   skip_ = 0;
   total_sent_ = 0;
   total_acked_ = 0;
