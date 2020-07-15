@@ -9,6 +9,7 @@
 #pragma once
 
 #include <quic/QuicException.h>
+#include <quic/congestion_control/third_party/windowed_filter.h>
 #include <quic/state/StateData.h>
 
 #include <limits>
