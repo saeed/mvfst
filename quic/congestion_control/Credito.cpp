@@ -20,7 +20,7 @@ constexpr int kRenoLossReductionFactorShift = 1;
 Credito::Credito(QuicConnectionStateBase& conn)
     : conn_(conn),
       credits_(conn.transportSettings.initCwndInMss * conn.udpSendPacketLen),
-      minRTTFilter_(kMinRTTWindowLength.count(), 0us, 0),
+      minRTTFilter_(kMinRTTWindowLengthC.count(), 0us, 0),
       standingRTTFilter_(100000, 0us, 0) {
   mul_factor_ = 1.05;
   total_sent_ = 0;

@@ -17,7 +17,7 @@
 namespace quic {
 
 using namespace std::chrono_literals;
-constexpr std::chrono::microseconds kMinRTTWindowLength{10s};
+constexpr std::chrono::microseconds kMinRTTWindowLengthC{10s};
 
 class Credito : public CongestionController {
  public:
