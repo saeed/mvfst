@@ -63,7 +63,7 @@ void Credito::onAckEvent(const AckEvent& ack) {
   auto rttStandingMicroSec = standingRTTFilter_.GetBest().count();
 
   if (rttMinMicroSec && rttStandingMicroSec && rttStandingMicroSec > rttMinMicroSec) {
-    if (rttStandingMicroSec > rttMinMicroSec * 1.1)
+    if (rttStandingMicroSec > rttMinMicroSec * 1.5)
       return;
   }
 
