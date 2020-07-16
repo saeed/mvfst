@@ -47,6 +47,25 @@ void DefaultPacer::refreshPacingRate(
   cachedBatchSize_ = batchSize_;
 }
 
+// rate_bps is *bytes* per second
+void DefaultPacer::setPacingRate(
+    QuicConnectionStateBase& conn,
+    uint64_t rate_bps) {
+  batchSize_ = conn_.transportSettings.writeConnectionDataPacketsLimit;
+  cachedBatchSize_ = batchSize_;
+  tokens_ = batchSize_;
+
+  // This calculates the necessary time interval between writes to achieve
+  // the desired rate. The number of bytes we write in each batch divided
+  // by the rate (bytes per second) yields the correct interval in *seconds*.
+  // Since the writeInterval_ must be expressed in microseconds,
+  // we multiply the numerator by 1,000,000.
+  uint64_t interval = (batchSize_ * conn.udpSendPacketLen * 1000000) / rate_bps;
+  writeInterval_ = std::max(
+      std::chrono::microseconds(interval),
+      conn.transportSettings.pacingTimerTickInterval);
+}
+
 void DefaultPacer::onPacedWriteScheduled(TimePoint currentTime) {
   scheduledWriteTime_ = currentTime;
 }
@@ -62,17 +81,13 @@ void DefaultPacer::onPacketsLoss() {
 }
 
 std::chrono::microseconds DefaultPacer::getTimeUntilNextWrite() const {
-  return (appLimited_ || tokens_) ? 0us : writeInterval_;
+  return tokens_ ? 0us : writeInterval_;
 }
 
 uint64_t DefaultPacer::updateAndGetWriteBatchSize(TimePoint currentTime) {
   SCOPE_EXIT {
     scheduledWriteTime_.reset();
   };
-  if (appLimited_) {
-    cachedBatchSize_ = conn_.transportSettings.writeConnectionDataPacketsLimit;
-    return cachedBatchSize_;
-  }
   if (writeInterval_ == 0us) {
     return batchSize_;
   }
@@ -100,9 +115,4 @@ void DefaultPacer::setPacingRateCalculator(
     PacingRateCalculator pacingRateCalculator) {
   pacingRateCalculator_ = std::move(pacingRateCalculator);
 }
-
-void DefaultPacer::setAppLimited(bool limited) {
-  appLimited_ = limited;
-}
-
 } // namespace quic

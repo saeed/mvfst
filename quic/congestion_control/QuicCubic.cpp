@@ -39,6 +39,13 @@ uint64_t Cubic::getWritableBytes() const noexcept {
       : 0;
 }
 
+void Cubic::handoff(uint64_t newCwnd, uint64_t newInflight) noexcept {
+  cwndBytes_ = newCwnd;
+  // inflightBytes_ = newInflight;
+  conn_.lossState.inflightBytes = newInflight;
+  state_ = CubicStates::Steady;
+}
+
 uint64_t Cubic::getCongestionWindow() const noexcept {
   return cwndBytes_;
 }
@@ -177,9 +184,6 @@ void Cubic::setAppIdle(bool idle, TimePoint eventTime) noexcept {
           : -1);
   if (conn_.qLogger) {
     conn_.qLogger->addAppIdleUpdate(kAppIdle, idle);
-  }
-  if (conn_.pacer) {
-    conn_.pacer->setAppLimited(idle);
   }
   bool currentAppIdle = isAppIdle();
   if (!currentAppIdle && idle) {

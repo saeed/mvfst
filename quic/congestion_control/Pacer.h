@@ -31,6 +31,9 @@ class DefaultPacer : public Pacer {
   void refreshPacingRate(uint64_t cwndBytes, std::chrono::microseconds rtt)
       override;
 
+  // rate_bps is *bytes* per second
+  void setPacingRate(QuicConnectionStateBase& conn, uint64_t rate_bps) override;
+
   void onPacedWriteScheduled(TimePoint currentTime) override;
 
   std::chrono::microseconds getTimeUntilNextWrite() const override;
@@ -40,8 +43,6 @@ class DefaultPacer : public Pacer {
   void setPacingRateCalculator(PacingRateCalculator pacingRateCalculator);
 
   uint64_t getCachedWriteBatchSize() const override;
-
-  void setAppLimited(bool limited) override;
 
   void onPacketSent() override;
   void onPacketsLoss() override;
@@ -54,7 +55,6 @@ class DefaultPacer : public Pacer {
   folly::Optional<TimePoint> scheduledWriteTime_;
   PacingRateCalculator pacingRateCalculator_;
   uint64_t cachedBatchSize_;
-  bool appLimited_{false};
   uint64_t tokens_;
 };
 } // namespace quic

@@ -158,14 +158,14 @@ struct TransportSettings {
   DurationRep timeReorderingThreshDividend{
       kDefaultTimeReorderingThreshDividend};
   DurationRep timeReorderingThreshDivisor{kDefaultTimeReorderingThreshDivisor};
-  // Whether to close client transport on read error from socket
-  bool closeClientOnReadError{false};
   // A temporary type to control DataPath write style. Will be gone after we
   // are done with experiment.
   DataPathType dataPathType{DataPathType::ChainedMemory};
   // Whether or not we should stop writing a packet after writing a single
   // stream frame to it.
   bool streamFramePerPacket{false};
+  // Ensure read callbacks are ordered by Stream ID.
+  bool orderedReadCallbacks{false};
 };
 
 } // namespace quic

@@ -765,6 +765,9 @@ void QuicTransportBase::invokeReadDataAndCallbacks() {
       readableStreams.begin(),
       readableStreams.end(),
       std::back_inserter(readableStreamsCopy));
+  if (self->conn_->transportSettings.orderedReadCallbacks) {
+    std::sort(readableStreamsCopy.begin(), readableStreamsCopy.end());
+  }
   for (StreamId streamId : readableStreamsCopy) {
     auto callback = self->readCallbacks_.find(streamId);
     if (callback == self->readCallbacks_.end()) {
@@ -1099,6 +1102,25 @@ void QuicTransportBase::invokeDataRejectedCallbacks() {
     }
   }
   self->conn_->streamManager->clearDataRejected();
+}
+
+void QuicTransportBase::invokeStreamsAvailableCallbacks() {
+  if (conn_->streamManager->consumeMaxLocalBidirectionalStreamIdIncreased()) {
+    // check in case new streams were created in preceding callbacks
+    // and max is already reached
+    auto numStreams = getNumOpenableBidirectionalStreams();
+    if (numStreams > 0) {
+      connCallback_->onBidirectionalStreamsAvailable(numStreams);
+    }
+  }
+  if (conn_->streamManager->consumeMaxLocalUnidirectionalStreamIdIncreased()) {
+    // check in case new streams were created in preceding callbacks
+    // and max is already reached
+    auto numStreams = getNumOpenableUnidirectionalStreams();
+    if (numStreams > 0) {
+      connCallback_->onUnidirectionalStreamsAvailable(numStreams);
+    }
+  }
 }
 
 folly::Expected<folly::Optional<uint64_t>, LocalErrorCode>
@@ -1589,6 +1611,8 @@ void QuicTransportBase::processCallbacksAfterNetworkData() {
       }
     }
   }
+
+  invokeStreamsAvailableCallbacks();
 }
 
 void QuicTransportBase::onNetworkData(

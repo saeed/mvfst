@@ -196,6 +196,10 @@ struct Pacer {
       uint64_t cwndBytes,
       std::chrono::microseconds rtt) = 0;
 
+  virtual void setPacingRate(
+      QuicConnectionStateBase& conn,
+      uint64_t rate_bps) = 0;
+
   /**
    * Notify the Pacer that a paced write is scheduled.
    *
@@ -224,7 +228,6 @@ struct Pacer {
    */
   virtual uint64_t getCachedWriteBatchSize() const = 0;
 
-  virtual void setAppLimited(bool limited) = 0;
   virtual void onPacketSent() = 0;
   virtual void onPacketsLoss() = 0;
 };
