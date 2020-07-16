@@ -234,7 +234,7 @@ static size_t fillFrameWithAckBlocks(
 
     size_t additionalSize = gapSize + currBlockLenSize +
         (numAdditionalAckBlocksSize - previousNumAckBlocksSize);
-    if (bytesLimit < additionalSize + 4) {
+    if (bytesLimit < additionalSize + 20) {
       break;
     }
     numAdditionalAckBlocks++;
