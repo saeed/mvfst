@@ -234,8 +234,7 @@ static size_t fillFrameWithAckBlocks(
 
     size_t additionalSize = gapSize + currBlockLenSize +
         (numAdditionalAckBlocksSize - previousNumAckBlocksSize);
-    if (bytesLimit < additionalSize + 20) {
-//      LOG(INFO) << "blocks exceed length" << bytesLimit << " " << additionalSize;
+    if (bytesLimit < additionalSize) {
       break;
     }
     numAdditionalAckBlocks++;
@@ -312,6 +311,9 @@ folly::Optional<AckFrameWriteResult> writeAckFrame(
     QuicInteger currentBlockLenInt(currBlockLen);
     builder.write(gapInt);
     builder.write(currentBlockLenInt);
+    if (!builder.remainingSpaceInPkt()) {
+      LOG(INFO) << "LARGE ACK PACKET ";
+    }
     currentSeqNum = it->start;
   }
   ackFrame.ackDelay = ackFrameMetaData.ackDelay;
