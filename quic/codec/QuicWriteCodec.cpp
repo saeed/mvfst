@@ -310,6 +310,9 @@ folly::Optional<AckFrameWriteResult> writeAckFrame(
     QuicInteger gapInt(gap);
     QuicInteger currentBlockLenInt(currBlockLen);
     builder.write(gapInt);
+    if (!builder.remainingSpaceInPkt()) {
+      LOG(INFO) << "LARGE ACK PACKET ";
+    }
     builder.write(currentBlockLenInt);
     if (!builder.remainingSpaceInPkt()) {
       LOG(INFO) << "LARGE ACK PACKET ";
