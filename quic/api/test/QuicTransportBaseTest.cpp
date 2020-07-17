@@ -3448,7 +3448,7 @@ TEST_F(
   const auto testError = std::make_pair(
       QuicErrorCode(LocalErrorCode::CONNECTION_RESET),
       std::string("testError"));
-  EXPECT_CALL(*cb, close(transport.get(), folly::Optional(testError)));
+  //EXPECT_CALL(*cb, close(transport.get(), folly::Optional(testError)));
   transport->close(testError);
   Mock::VerifyAndClearExpectations(cb.get());
   InSequence s;
