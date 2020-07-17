@@ -196,7 +196,7 @@ class QuicTransportBase : public QuicSocket {
   folly::Expected<folly::Unit, LocalErrorCode> registerDeliveryCallback(
       StreamId id,
       uint64_t offset,
-      DeliveryCallback* cb) override;
+      ByteEventCallback* cb) override;
 
   folly::Optional<LocalErrorCode> shutdownWrite(StreamId id) override;
 
@@ -237,27 +237,6 @@ class QuicTransportBase : public QuicSocket {
   void attachEventBase(folly::EventBase* evb) override;
 
   folly::Optional<LocalErrorCode> setControlStream(StreamId id) override;
-
-  /**
-   * Invoke onCanceled for all the delivery callbacks in the deliveryCallbacks
-   * passed in. This is supposed to be a copy of the real deque of the delivery
-   * callbacks for the stream, so there is no need to pop anything off of it.
-   */
-  static void cancelDeliveryCallbacks(
-      StreamId id,
-      const std::deque<std::pair<uint64_t, QuicSocket::DeliveryCallback*>>&
-          deliveryCallbacks);
-
-  /**
-   * Invoke onCanceled for all the delivery callbacks in the deliveryCallbacks
-   * map. This is supposed to be a copy of the real map of the delivery
-   * callbacks of the transport, so there is no need to erase anything from it.
-   */
-  static void cancelDeliveryCallbacks(
-      const folly::F14FastMap<
-          StreamId,
-          std::deque<std::pair<uint64_t, QuicSocket::DeliveryCallback*>>>&
-          deliveryCallbacks);
 
   /**
    * Set the initial flow control window for the connection.
@@ -326,14 +305,80 @@ class QuicTransportBase : public QuicSocket {
   /**
    * Invoke onCanceled on all the delivery callbacks registered for streamId.
    */
-  void cancelDeliveryCallbacksForStream(StreamId streamId) override;
+  void cancelDeliveryCallbacksForStream(StreamId id) override;
 
   /**
    * Invoke onCanceled on all the delivery callbacks registered for streamId for
    * offsets lower than the offset provided.
    */
-  void cancelDeliveryCallbacksForStream(StreamId streamId, uint64_t offset)
-      override;
+  void cancelDeliveryCallbacksForStream(StreamId id, uint64_t offset) override;
+
+  /**
+   * Register a callback to be invoked when the stream offset was transmitted.
+   *
+   * Currently, an offset is considered "transmitted" if it has been written to
+   * to the underlying UDP socket, indicating that it has passed through
+   * congestion control and pacing. In the future, this callback may be
+   * triggered by socket/NIC software or hardware timestamps.
+   */
+  folly::Expected<folly::Unit, LocalErrorCode> registerTxCallback(
+      const StreamId id,
+      const uint64_t offset,
+      ByteEventCallback* cb) override;
+
+  /**
+   * Register a byte event to be triggered when specified event type occurs for
+   * the specified stream and offset.
+   */
+  folly::Expected<folly::Unit, LocalErrorCode> registerByteEventCallback(
+      const ByteEvent::Type type,
+      const StreamId id,
+      const uint64_t offset,
+      ByteEventCallback* cb) override;
+
+  /**
+   * Cancel byte event callbacks for given stream.
+   *
+   * If an offset is provided, cancels only callbacks with an offset less than
+   * or equal to the provided offset, otherwise cancels all callbacks.
+   */
+  void cancelByteEventCallbacksForStream(
+      const StreamId id,
+      const folly::Optional<uint64_t>& offset = folly::none) override;
+
+  /**
+   * Cancel byte event callbacks for given type and stream.
+   *
+   * If an offset is provided, cancels only callbacks with an offset less than
+   * or equal to the provided offset, otherwise cancels all callbacks.
+   */
+  void cancelByteEventCallbacksForStream(
+      const ByteEvent::Type type,
+      const StreamId id,
+      const folly::Optional<uint64_t>& offset = folly::none) override;
+
+  /**
+   * Cancel all byte event callbacks of all streams.
+   */
+  void cancelAllByteEventCallbacks() override;
+
+  /**
+   * Cancel all byte event callbacks of all streams of the given type.
+   */
+  void cancelByteEventCallbacks(const ByteEvent::Type type) override;
+
+  /**
+   * Get the number of pending byte events for the given stream.
+   */
+  [[nodiscard]] size_t getNumByteEventCallbacksForStream(
+      const StreamId id) const override;
+
+  /**
+   * Get the number of pending byte events of specified type for given stream.
+   */
+  [[nodiscard]] size_t getNumByteEventCallbacksForStream(
+      const ByteEvent::Type type,
+      const StreamId id) const override;
 
   // Timeout functions
   class LossTimeout : public folly::HHWheelTimer::Callback {
@@ -481,7 +526,63 @@ class QuicTransportBase : public QuicSocket {
   virtual void cancelAllAppCallbacks(
       const std::pair<QuicErrorCode, folly::StringPiece>& error) noexcept;
 
+  /**
+   * Adds a lifecycle observer.
+   *
+   * Observers can tie their lifetime to aspects of this socket's lifecycle /
+   * lifetime and perform inspection at various states.
+   *
+   * This enables instrumentation to be added without changing / interfering
+   * with how the application uses the socket.
+   *
+   * @param observer     Observer to add (implements LifecycleObserver).
+   */
+  void addLifecycleObserver(LifecycleObserver* observer) override;
+
+  /**
+   * Removes a lifecycle observer.
+   *
+   * @param observer     Observer to remove.
+   * @return             Whether observer found and removed from list.
+   */
+  bool removeLifecycleObserver(LifecycleObserver* observer) override;
+
+  /**
+   * Returns installed lifecycle observers.
+   *
+   * @return             Reference to const vector with installed observers.
+   */
+  FOLLY_NODISCARD const LifecycleObserverVec& getLifecycleObservers()
+      const override;
+
+  /**
+   * Adds a instrumentation observer.
+   *
+   * Instrumentation observers get notified of various socket events.
+   *
+   * @param observer     Observer to add (implements InstrumentationObserver).
+   */
+  void addInstrumentationObserver(InstrumentationObserver* observer) override;
+
+  /**
+   * Removes a instrumentation observer.
+   *
+   * @param observer     Observer to remove.
+   * @return             Whether observer found and removed from list.
+   */
+  bool removeInstrumentationObserver(
+      InstrumentationObserver* observer) override;
+
+  /**
+   * Returns installed instrumentation observers.
+   *
+   * @return             Reference to const vector with installed observers.
+   */
+  FOLLY_NODISCARD const InstrumentationObserverVec&
+  getInstrumentationObservers() const override;
+
  protected:
+  void processCallbacksAfterWriteData();
   void processCallbacksAfterNetworkData();
   void invokeReadDataAndCallbacks();
   void invokePeekDataAndCallbacks();
@@ -562,6 +663,31 @@ class QuicTransportBase : public QuicSocket {
       PingCallback* callback,
       std::chrono::milliseconds pingTimeout);
 
+  using ByteEventMap = folly::
+      F14FastMap<StreamId, std::deque<std::pair<uint64_t, ByteEventCallback*>>>;
+  ByteEventMap& getByteEventMap(const ByteEvent::Type type);
+  [[nodiscard]] const ByteEventMap& getByteEventMapConst(
+      const ByteEvent::Type type) const;
+
+  /**
+   * Helper function that calls passed function for each ByteEvent type.
+   *
+   * Removes number of locations to update when a byte event is added.
+   */
+  void invokeForEachByteEventType(
+      const std::function<void(const ByteEvent::Type)>& fn) {
+    for (const auto& type : ByteEvent::kByteEventTypes) {
+      fn(type);
+    }
+  }
+
+  void invokeForEachByteEventTypeConst(
+      const std::function<void(const ByteEvent::Type)>& fn) const {
+    for (const auto& type : ByteEvent::kByteEventTypes) {
+      fn(type);
+    }
+  }
+
   std::atomic<folly::EventBase*> evb_;
   std::unique_ptr<folly::AsyncUDPSocket> socket_;
   ConnectionCallback* connCallback_{nullptr};
@@ -601,9 +727,10 @@ class QuicTransportBase : public QuicSocket {
 
   folly::F14FastMap<StreamId, ReadCallbackData> readCallbacks_;
   folly::F14FastMap<StreamId, PeekCallbackData> peekCallbacks_;
-  folly::
-      F14FastMap<StreamId, std::deque<std::pair<uint64_t, DeliveryCallback*>>>
-          deliveryCallbacks_;
+
+  ByteEventMap deliveryCallbacks_;
+  ByteEventMap txCallbacks_;
+
   folly::F14FastMap<StreamId, DataExpiredCallbackData> dataExpiredCallbacks_;
   folly::F14FastMap<StreamId, DataRejectedCallbackData> dataRejectedCallbacks_;
   PingCallback* pingCallback_;
@@ -630,6 +757,12 @@ class QuicTransportBase : public QuicSocket {
   std::shared_ptr<CongestionControllerFactory> ccFactory_{nullptr};
 
   folly::Optional<std::string> exceptionCloseWhat_;
+
+  // Lifecycle observers
+  LifecycleObserverVec lifecycleObservers_;
+
+  // Instrumentation observers
+  InstrumentationObserverVec instrumentationObservers_;
 };
 
 std::ostream& operator<<(std::ostream& os, const QuicTransportBase& qt);

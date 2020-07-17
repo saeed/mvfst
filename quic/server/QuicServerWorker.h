@@ -12,11 +12,13 @@
 #include <folly/container/F14Set.h>
 #include <folly/io/SocketOptionMap.h>
 #include <folly/io/async/AsyncUDPSocket.h>
+#include <folly/small_vector.h>
 
 #include <quic/codec/ConnectionIdAlgo.h>
 #include <quic/common/BufAccessor.h>
 #include <quic/common/Timers.h>
 #include <quic/congestion_control/CongestionControllerFactory.h>
+#include <quic/server/CCPReader.h>
 #include <quic/server/QuicServerPacketRouter.h>
 #include <quic/server/QuicServerTransportFactory.h>
 #include <quic/server/QuicUDPSocketFactory.h>
@@ -25,6 +27,8 @@
 #include <quic/state/QuicTransportStatsCallback.h>
 
 namespace quic {
+
+class AcceptObserver;
 
 class QuicServerWorker : public folly::AsyncUDPSocket::ReadCallback,
                          public QuicServerTransport::RoutingCallback,
@@ -301,6 +305,13 @@ class QuicServerWorker : public folly::AsyncUDPSocket::ReadCallback,
    */
   void setRateLimiter(std::unique_ptr<RateLimiter> rateLimiter);
 
+  /*
+   * Get a reference to this worker's corresponding CCPReader.
+   * Each worker has a CCPReader that handles recieving messages from CCP
+   * and dispatching them to the correct connection.
+   */
+  FOLLY_NODISCARD CCPReader* getCcpReader() const noexcept;
+
   // Read callback
   void getReadBuffer(void** buf, size_t* len) noexcept override;
 
@@ -420,6 +431,28 @@ class QuicServerWorker : public folly::AsyncUDPSocket::ReadCallback,
     return ret;
   }
 
+  /**
+   * Adds observer for accept events.
+   *
+   * Can be used to install socket observers and instrumentation without
+   * changing / interfering with application-specific acceptor logic.
+   *
+   * @param observer     Observer to add (implements AcceptObserver).
+   */
+  void addAcceptObserver(AcceptObserver* observer) {
+    observerList_.add(observer);
+  }
+
+  /**
+   * Remove observer for accept events.
+   *
+   * @param observer     Observer to remove.
+   * @return             Whether observer found and removed from list.
+   */
+  bool removeAcceptObserver(AcceptObserver* observer) {
+    return observerList_.remove(observer);
+  }
+
  private:
   /**
    * Creates accepting socket from this server's listening address.
@@ -510,6 +543,43 @@ class QuicServerWorker : public folly::AsyncUDPSocket::ReadCallback,
 
   // EventRecvmsgCallback data
   std::unique_ptr<MsgHdr> msgHdr_;
+
+  // Wrapper around list of AcceptObservers to handle cleanup on destruction
+  class AcceptObserverList {
+   public:
+    explicit AcceptObserverList(QuicServerWorker* worker);
+
+    /**
+     * Destructor, triggers observerDetach for any attached observers.
+     */
+    ~AcceptObserverList();
+
+    /**
+     * Add observer and trigger observerAttach.
+     */
+    void add(AcceptObserver* observer);
+
+    /**
+     * Remove observer and trigger observerDetach.
+     */
+    bool remove(AcceptObserver* observer);
+
+    /**
+     * Get reference to vector containing observers.
+     */
+    FOLLY_NODISCARD const std::vector<AcceptObserver*>& getAll() const {
+      return observers_;
+    }
+
+   private:
+    QuicServerWorker* worker_{nullptr};
+    std::vector<AcceptObserver*> observers_;
+  };
+
+  // List of AcceptObservers
+  AcceptObserverList observerList_;
+
+  std::unique_ptr<CCPReader> ccpReader_;
 };
 
 } // namespace quic

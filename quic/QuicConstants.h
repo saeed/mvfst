@@ -265,9 +265,18 @@ constexpr folly::StringPiece kCongestionControlCopaStr = "copa";
 constexpr folly::StringPiece kCongestionControlNewRenoStr = "newreno";
 constexpr folly::StringPiece kCongestionControlCredito = "credito";
 constexpr folly::StringPiece kCongestionControlNoneStr = "none";
+constexpr folly::StringPiece kCongestionControlCcpStr = "ccp";
 
 constexpr DurationRep kPersistentCongestionThreshold = 3;
-enum class CongestionControlType : uint8_t { Cubic, NewReno, Copa, BBR, Credito, None };
+enum class CongestionControlType : uint8_t {
+  Cubic,
+  NewReno,
+  Copa,
+  BBR,
+  Credito,
+  CCP,
+  None
+};
 folly::StringPiece congestionControlTypeToString(CongestionControlType type);
 folly::Optional<CongestionControlType> congestionControlStrToType(
     folly::StringPiece str);

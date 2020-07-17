@@ -117,6 +117,7 @@ class MockConnectionCallback : public QuicSocket::ConnectionCallback {
       ,
       onUnidirectionalStreamsAvailable,
       void(uint64_t));
+  GMOCK_METHOD0_(, noexcept, , onAppRateLimited, void());
 };
 
 class MockDeliveryCallback : public QuicSocket::DeliveryCallback {
@@ -126,6 +127,31 @@ class MockDeliveryCallback : public QuicSocket::DeliveryCallback {
       onDeliveryAck,
       void(StreamId, uint64_t, std::chrono::microseconds));
   MOCK_METHOD2(onCanceled, void(StreamId, uint64_t));
+};
+
+class MockByteEventCallback : public QuicSocket::ByteEventCallback {
+ public:
+  ~MockByteEventCallback() override = default;
+  MOCK_METHOD1(onByteEvent, void(QuicSocket::ByteEvent));
+  MOCK_METHOD1(onByteEventCanceled, void(QuicSocket::ByteEvent));
+
+  static auto getTxMatcher(StreamId id, uint64_t offset) {
+    return AllOf(
+        testing::Field(
+            &QuicSocket::ByteEvent::type,
+            testing::Eq(QuicSocket::ByteEvent::Type::TX)),
+        testing::Field(&QuicSocket::ByteEvent::id, testing::Eq(id)),
+        testing::Field(&QuicSocket::ByteEvent::offset, testing::Eq(offset)));
+  }
+
+  static auto getAckMatcher(StreamId id, uint64_t offset) {
+    return AllOf(
+        testing::Field(
+            &QuicSocket::ByteEvent::type,
+            testing::Eq(QuicSocket::ByteEvent::Type::ACK)),
+        testing::Field(&QuicSocket::ByteEvent::id, testing::Eq(id)),
+        testing::Field(&QuicSocket::ByteEvent::offset, testing::Eq(offset)));
+  }
 };
 
 class MockDataExpiredCallback : public QuicSocket::DataExpiredCallback {
@@ -279,6 +305,27 @@ class MockLoopDetectorCallback : public LoopDetectorCallback {
       onSuspiciousWriteLoops,
       void(uint64_t, WriteDataReason, NoWriteReason, const std::string&));
   MOCK_METHOD2(onSuspiciousReadLoops, void(uint64_t, NoReadReason));
+};
+
+class MockLifecycleObserver : public QuicSocket::LifecycleObserver {
+ public:
+  GMOCK_METHOD1_(, noexcept, , observerAttach, void(QuicSocket*));
+  GMOCK_METHOD1_(, noexcept, , observerDetach, void(QuicSocket*));
+  GMOCK_METHOD1_(, noexcept, , destroy, void(QuicSocket*));
+  GMOCK_METHOD2_(
+      ,
+      noexcept,
+      ,
+      close,
+      void(
+          QuicSocket*,
+          const folly::Optional<std::pair<QuicErrorCode, std::string>>&));
+};
+
+class MockInstrumentationObserver : public QuicSocket::InstrumentationObserver {
+ public:
+  GMOCK_METHOD1_(, noexcept, , observerDetach, void(QuicSocket*));
+  GMOCK_METHOD1_(, noexcept, , appRateLimited, void(QuicSocket*));
 };
 
 inline std::ostream& operator<<(std::ostream& os, const MockQuicTransport&) {

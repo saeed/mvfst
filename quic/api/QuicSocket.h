@@ -13,6 +13,7 @@
 #include <folly/io/IOBuf.h>
 #include <quic/QuicConstants.h>
 #include <quic/codec/Types.h>
+#include <quic/common/SmallVec.h>
 #include <quic/state/StateData.h>
 
 #include <chrono>
@@ -100,6 +101,11 @@ class QuicSocket {
      */
     virtual void onUnidirectionalStreamsAvailable(
         uint64_t /*numStreamsAvailable*/) noexcept {}
+
+    /**
+     * Invoked when transport is detected to be app rate limited.
+     */
+    virtual void onAppRateLimited() noexcept {}
   };
 
   /**
@@ -452,8 +458,7 @@ class QuicSocket {
   virtual void unsetAllPeekCallbacks() = 0;
 
   /**
-   * Convenience function that sets the read callbacks of all streams to be
-   * nullptr.
+   * Convenience function that cancels delivery callbacks of all streams.
    */
   virtual void unsetAllDeliveryCallbacks() = 0;
 
@@ -782,14 +787,58 @@ class QuicSocket {
       unregisterStreamWriteCallback(StreamId) = 0;
 
   /**
+   * Structure used to communicate TX and ACK/Delivery notifications.
+   */
+  struct ByteEvent {
+    enum class Type { ACK = 1, TX = 2 };
+    static constexpr std::array<Type, 2> kByteEventTypes = {Type::ACK,
+                                                            Type::TX};
+
+    StreamId id{0};
+    uint64_t offset{0};
+    Type type;
+
+    // sRTT at time of event
+    // TODO(bschlinker): Deprecate, caller can fetch transport state if desired.
+    std::chrono::microseconds srtt{0us};
+  };
+
+  /**
+   * Structure used to communicate cancellation of a ByteEvent.
+   *
+   * According to Dictionary.com, cancellation is more frequent in American
+   * English than cancelation. Yet in American English, the preferred style is
+   * typically not to double the final L, so cancel generally becomes canceled.
+   */
+  using ByteEventCancellation = ByteEvent;
+
+  /**
+   * Callback class for receiving byte event (TX/ACK) notifications.
+   */
+  class ByteEventCallback {
+   public:
+    virtual ~ByteEventCallback() = default;
+
+    /**
+     * Invoked when the byte event has occurred.
+     */
+    virtual void onByteEvent(ByteEvent byteEvent) = 0;
+
+    /**
+     * Invoked if byte event is canceled due to reset, shutdown, or other error.
+     */
+    virtual void onByteEventCanceled(ByteEventCancellation cancellation) = 0;
+  };
+
+  /**
    * Callback class for receiving ack notifications
    */
-  class DeliveryCallback {
+  class DeliveryCallback : public ByteEventCallback {
    public:
     virtual ~DeliveryCallback() = default;
 
     /**
-     * Invoked when the peer has acknowledged the receipt of the specificed
+     * Invoked when the peer has acknowledged the receipt of the specified
      * offset.  rtt is the current RTT estimate for the connection.
      */
     virtual void onDeliveryAck(
@@ -802,7 +851,88 @@ class QuicSocket {
      * delivered (due to a reset or other error).
      */
     virtual void onCanceled(StreamId id, uint64_t offset) = 0;
+
+   private:
+    // Temporary shim during transition to ByteEvent
+    void onByteEvent(ByteEvent byteEvent) final {
+      CHECK_EQ((int)ByteEvent::Type::ACK, (int)byteEvent.type); // sanity
+      onDeliveryAck(byteEvent.id, byteEvent.offset, byteEvent.srtt);
+    }
+
+    // Temporary shim during transition to ByteEvent
+    void onByteEventCanceled(ByteEventCancellation cancellation) final {
+      CHECK_EQ((int)ByteEvent::Type::ACK, (int)cancellation.type); // sanity
+      onCanceled(cancellation.id, cancellation.offset);
+    }
   };
+
+  /**
+   * Register a callback to be invoked when the stream offset was transmitted.
+   *
+   * Currently, an offset is considered "transmitted" if it has been written to
+   * to the underlying UDP socket, indicating that it has passed through
+   * congestion control and pacing. In the future, this callback may be
+   * triggered by socket/NIC software or hardware timestamps.
+   */
+  virtual folly::Expected<folly::Unit, LocalErrorCode> registerTxCallback(
+      const StreamId id,
+      const uint64_t offset,
+      ByteEventCallback* cb) = 0;
+
+  /**
+   * Register a byte event to be triggered when specified event type occurs for
+   * the specified stream and offset.
+   */
+  virtual folly::Expected<folly::Unit, LocalErrorCode>
+  registerByteEventCallback(
+      const ByteEvent::Type type,
+      const StreamId id,
+      const uint64_t offset,
+      ByteEventCallback* cb) = 0;
+
+  /**
+   * Cancel byte event callbacks for given stream.
+   *
+   * If an offset is provided, cancels only callbacks with an offset less than
+   * or equal to the provided offset, otherwise cancels all callbacks.
+   */
+  virtual void cancelByteEventCallbacksForStream(
+      const StreamId id,
+      const folly::Optional<uint64_t>& offset = folly::none) = 0;
+
+  /**
+   * Cancel byte event callbacks for given type and stream.
+   *
+   * If an offset is provided, cancels only callbacks with an offset less than
+   * or equal to the provided offset, otherwise cancels all callbacks.
+   */
+  virtual void cancelByteEventCallbacksForStream(
+      const ByteEvent::Type type,
+      const StreamId id,
+      const folly::Optional<uint64_t>& offset = folly::none) = 0;
+
+  /**
+   * Cancel all byte event callbacks of all streams.
+   */
+  virtual void cancelAllByteEventCallbacks() = 0;
+
+  /**
+   * Cancel all byte event callbacks of all streams of the given type.
+   */
+  virtual void cancelByteEventCallbacks(const ByteEvent::Type type) = 0;
+
+  /**
+   * Get the number of pending byte events for the given stream.
+   */
+  FOLLY_NODISCARD virtual size_t getNumByteEventCallbacksForStream(
+      const StreamId streamId) const = 0;
+
+  /**
+   * Get the number of pending byte events of specified type for given stream.
+   */
+  FOLLY_NODISCARD virtual size_t getNumByteEventCallbacksForStream(
+      const ByteEvent::Type type,
+      const StreamId streamId) const = 0;
 
   /**
    * Write data/eof to the given stream.
@@ -824,12 +954,12 @@ class QuicSocket {
 
   /**
    * Register a callback to be invoked when the peer has acknowledged the
-   * given offset on the given stream
+   * given offset on the given stream.
    */
   virtual folly::Expected<folly::Unit, LocalErrorCode> registerDeliveryCallback(
       StreamId id,
       uint64_t offset,
-      DeliveryCallback* cb) = 0;
+      ByteEventCallback* cb) = 0;
 
   /**
    * Close the stream for writing.  Equivalent to writeChain(id, nullptr, true).
@@ -926,5 +1056,152 @@ class QuicSocket {
    * Set congestion control type.
    */
   virtual void setCongestionControl(CongestionControlType type) = 0;
+
+  /**
+   * ===== Lifecycle Observer API =====
+   */
+
+  /**
+   * Observer of socket lifecycle events.
+   */
+  class LifecycleObserver {
+   public:
+    virtual ~LifecycleObserver() = default;
+
+    /**
+     * observerAttach() will be invoked when an observer is added.
+     *
+     * @param socket      Socket where observer was installed.
+     */
+    virtual void observerAttach(QuicSocket* /* socket */) noexcept = 0;
+
+    /**
+     * observerDetach() will be invoked if the observer is uninstalled prior
+     * to socket destruction.
+     *
+     * No further callbacks will be invoked after observerDetach().
+     *
+     * @param socket      Socket where observer was uninstalled.
+     */
+    virtual void observerDetach(QuicSocket* /* socket */) noexcept = 0;
+
+    /**
+     * destroy() will be invoked when the QuicSocket's destructor is invoked.
+     *
+     * No further callbacks will be invoked after destroy().
+     *
+     * @param socket      Socket being destroyed.
+     */
+    virtual void destroy(QuicSocket* /* socket */) noexcept = 0;
+
+    /**
+     * close() will be invoked when the socket is being closed.
+     *
+     * If the callback handler does not unsubscribe itself upon being called,
+     * then it may be called multiple times (e.g., by a call to close() by
+     * the application, and then again when closeNow() is called on
+     * destruction).
+     *
+     * @param socket      Socket being closed.
+     * @param errorOpt    Error information, if connection closed due to error.
+     */
+    virtual void close(
+        QuicSocket* /* socket */,
+        const folly::Optional<std::pair<
+            QuicErrorCode,
+            std::string>>& /* errorOpt */) noexcept = 0;
+  };
+
+  // Container for lifecycle observers.
+  // Avoids heap allocation for up to 2 observers being installed.
+  using LifecycleObserverVec = SmallVec<LifecycleObserver*, 2>;
+
+  /**
+   * Adds a lifecycle observer.
+   *
+   * Observers can tie their lifetime to aspects of this socket's lifecycle /
+   * lifetime and perform inspection at various states.
+   *
+   * This enables instrumentation to be added without changing / interfering
+   * with how the application uses the socket.
+   *
+   * @param observer     Observer to add (implements LifecycleObserver).
+   */
+  virtual void addLifecycleObserver(LifecycleObserver* observer) = 0;
+
+  /**
+   * Removes a lifecycle observer.
+   *
+   * @param observer     Observer to remove.
+   * @return             Whether observer found and removed from list.
+   */
+  virtual bool removeLifecycleObserver(LifecycleObserver* observer) = 0;
+
+  /**
+   * Returns installed lifecycle observers.
+   *
+   * @return             Reference to const vector with installed observers.
+   */
+  FOLLY_NODISCARD virtual const LifecycleObserverVec& getLifecycleObservers()
+      const = 0;
+
+  /**
+   * ===== Instrumentation Observer API =====
+   */
+
+  /**
+   * Observer of socket instrumentation events.
+   */
+  class InstrumentationObserver {
+   public:
+    virtual ~InstrumentationObserver() = default;
+
+    /**
+     * observerDetach() will be invoked when the observer is uninstalled.
+     *
+     * No further callbacks will be invoked after observerDetach().
+     *
+     * @param socket      Socket where observer was uninstalled.
+     */
+    virtual void observerDetach(QuicSocket* /* socket */) noexcept = 0;
+
+    /**
+     * appRateLimited() is invoked when the socket is app rate limited.
+     *
+     * @param socket      Socket that has become application rate limited.
+     */
+    virtual void appRateLimited(QuicSocket* /* socket */) {}
+  };
+
+  // Container for instrumentation observers.
+  // Avoids heap allocation for up to 2 observers being installed.
+  using InstrumentationObserverVec = SmallVec<InstrumentationObserver*, 2>;
+
+  /**
+   * Adds a instrumentation observer.
+   *
+   * Instrumentation observers get notified of various socket events.
+   *
+   * @param observer     Observer to add (implements InstrumentationObserver).
+   */
+  virtual void addInstrumentationObserver(
+      InstrumentationObserver* observer) = 0;
+
+  /**
+   * Removes a instrumentation observer.
+   *
+   * @param observer     Observer to remove.
+   * @return             Whether observer found and removed from list.
+   */
+  virtual bool removeInstrumentationObserver(
+      InstrumentationObserver* observer) = 0;
+
+  /**
+   * Returns installed instrumentation observers.
+   *
+   * @return             Reference to const vector with installed observers.
+   */
+  FOLLY_NODISCARD virtual const InstrumentationObserverVec&
+  getInstrumentationObservers() const = 0;
 };
 } // namespace quic
