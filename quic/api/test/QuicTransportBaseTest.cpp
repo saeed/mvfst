@@ -3426,7 +3426,7 @@ TEST_F(
   const std::pair<QuicErrorCode, std::string> defaultError = std::make_pair(
       GenericApplicationErrorCode::NO_ERROR,
       toString(GenericApplicationErrorCode::NO_ERROR));
-  EXPECT_CALL(*cb, close(transport.get(), folly::Optional(defaultError)));
+//  EXPECT_CALL(*cb, close(transport.get(), folly::Optional(defaultError)));
   transport->close(folly::none);
   Mock::VerifyAndClearExpectations(cb.get());
   InSequence s;
