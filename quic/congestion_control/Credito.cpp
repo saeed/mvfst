@@ -49,7 +49,7 @@ void Credito::onAckEvent(const AckEvent& ack) {
   subtractAndCheckUnderflow(conn_.lossState.inflightBytes, ack.ackedBytes);
   total_acked_ += ack.ackedBytes;
 
-  minRTTFilter_.Update(
+/*  minRTTFilter_.Update(
       conn_.lossState.lrtt,
       std::chrono::duration_cast<microseconds>(ack.ackTime.time_since_epoch())
           .count());
@@ -65,7 +65,7 @@ void Credito::onAckEvent(const AckEvent& ack) {
   if (rttMinMicroSec && rttStandingMicroSec && rttStandingMicroSec > rttMinMicroSec) {
     if (rttStandingMicroSec > rttMinMicroSec * 1.5)
       return;
-  }
+  }*/
 
   uint64_t __add = ack.ackedBytes * mul_factor_;
   credits_ += __add;
