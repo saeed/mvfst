@@ -247,7 +247,7 @@ constexpr DurationRep kDefaultTimeReorderingThreshDivisor = 4;
 constexpr auto kPacketToSendForPTO = 2;
 
 // Maximum number of packets to write per writeConnectionDataToSocket call.
-constexpr uint64_t kDefaultWriteConnectionDataPacketLimit = 50;
+constexpr uint64_t kDefaultWriteConnectionDataPacketLimit = 5;
 // Minimum number of packets to write per burst in pacing
 constexpr uint64_t kDefaultMinBurstPackets = 5;
 // Default timer tick interval for pacing timer
